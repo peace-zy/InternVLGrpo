@@ -69,7 +69,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../trl"))
 from trl.trainer.internvl_grpo_trainer import InternvlGRPOTrainer
 from trl.trainer.internvl_grpo_trainer import InternvlGRPOConfig
 
-from check_gen_res_validation import format_reward_func
+from reward_funcs import format_reward_func
 
 # Try to import petrel_client for image loading, fallback to PIL if unavailable
 try:
