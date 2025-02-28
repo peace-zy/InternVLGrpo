@@ -72,15 +72,6 @@ def rank0_print(message):
     if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
         print(message)
 
-def get_question(query):
-    match = re.search(r'user\n\n(.*?)assistant', query, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    
-    rank0_print(f'No match found in query: {query}')
-    default_question = '请将该图形的几何元素，如点、线、面等转换为标准的矢量json格式，确保有入户门，外轮廓完整，所有房间都标注了相应的功能名称，如卧室、客厅、厨房、卫生间等。不要在一个列表里重复生成同一个墙体，并确保生成的是可解析的JSON格式。'
-    return default_question
-
 class RepeatRandomSampler(Sampler):
     """
     Sampler that repeats the indices of a dataset in a structured manner.
@@ -577,7 +568,7 @@ class InternvlGRPOTrainer(Trainer):
             * self.args.gradient_accumulation_steps
         )
         
-        print(f'effective_batch_size={effective_batch_size}, mini_repeat_count={self.num_generations}, batch_size={effective_batch_size // self.num_generations}, repeat_count={self.num_iterations}')
+        #print(f'effective_batch_size={effective_batch_size}, mini_repeat_count={self.num_generations}, batch_size={effective_batch_size // self.num_generations}, repeat_count={self.num_iterations}')
         return RepeatRandomSampler(
             data_source=self.train_dataset,
             mini_repeat_count=self.num_generations,
@@ -636,7 +627,7 @@ class InternvlGRPOTrainer(Trainer):
     def _prepare_inputs(self, inputs: dict[str, Union[torch.Tensor, Any]]) -> dict[str, Union[torch.Tensor, Any]]:
         device = self.accelerator.device
         inputs = super()._prepare_inputs(inputs)
-        print(f'input_ids.shape={inputs["input_ids"].shape}, images={inputs["images"]}')
+        #print(f'input_ids.shape={inputs["input_ids"].shape}, images={inputs["images"]}')
         #input_ids = inputs['input_ids']
         #shift_input_ids = input_ids[..., 1:].contiguous()
         pixel_values = inputs['pixel_values']
