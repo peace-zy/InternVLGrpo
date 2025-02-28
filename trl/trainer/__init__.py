@@ -38,6 +38,8 @@ _import_structure = {
     "gkd_trainer": ["GKDTrainer"],
     "grpo_config": ["GRPOConfig"],
     "grpo_trainer": ["GRPOTrainer"],
+    "intervl_grpo_config": ["IntervlGRPOConfig"],
+    "intervl_grpo_trainer": ["IntervlGRPOTrainer"],
     "iterative_sft_trainer": ["IterativeSFTTrainer"],
     "judges": [
         "AllTrueJudge",
