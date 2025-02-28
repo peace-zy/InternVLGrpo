@@ -67,7 +67,7 @@ from transformers.utils.logging import (enable_default_handler,
 #from internvl.train.internvl_grpo_config import InternvlGRPOConfig
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../trl"))
 from trl.trainer.internvl_grpo_trainer import InternvlGRPOTrainer
-from trl.trainer.internvl_grpo_trainer import InternvlGRPOConfig
+from trl.trainer.internvl_grpo_config import InternvlGRPOConfig
 
 from reward_funcs import format_reward_func
 
