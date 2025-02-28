@@ -1040,8 +1040,10 @@ print(f'User: {question}\nAssistant: {response}')
 ```
 
 </details>
-## Training with GRPO
+
+## Training with GRPO  
 ```
+The data format is the same as before. To be compatible with the reward function, GT information needs to be input."
 cd internvl_chat
 sh shell/internvl2.0/internvl2_2b_internlm2_1_8b_dynamic_res_with_grpo.sh
 ```
