@@ -3,7 +3,8 @@
 # Copyright (c) 2024 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
-
+# import pdb
+# pdb.set_trace()
 import logging
 import math
 import os
@@ -61,6 +62,16 @@ from transformers import (AutoConfig, AutoModelForCausalLM, AutoTokenizer,
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.logging import (enable_default_handler,
                                         enable_explicit_format, set_verbosity)
+
+#from internvl.train.internvl_grpo_trainer import InternvlGRPOTrainer
+#from internvl.train.internvl_grpo_config import InternvlGRPOConfig
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../trl"))
+from trl.trainer.internvl_rl_by_rule_trainer import InternvlRlByRuleTrainer
+from trl.trainer.internvl_rl_by_rule_config import InternvlRlByRuleConfig
+
+import sys
+sys.path.append('/mnt/bella/users/zhangyan/MultiModal/standard_frame_2.0_converter/evaluate')
+from check_gen_res_validation import format_reward_func, render_reward_func, restoration_reward_func
 
 # Try to import petrel_client for image loading, fallback to PIL if unavailable
 try:
@@ -394,15 +405,16 @@ class LazySupervisedDataset(Dataset):
     def __len__(self):
         return len(self.raw_data)
 
-    def get_preprocess_function(self):
+    @staticmethod
+    def get_preprocess_function(template_name):
         # Select the appropriate preprocessing function based on the template name
-        if self.template_name == 'Hermes-2':
+        if template_name == 'Hermes-2':
             preprocess_function = preprocess_mpt
-        elif self.template_name == 'internlm2-chat':
+        elif template_name == 'internlm2-chat':
             preprocess_function = preprocess_internlm
-        elif self.template_name == 'phi3-chat':
+        elif template_name == 'phi3-chat':
             preprocess_function = preprocess_phi3
-        elif self.template_name == 'internvl2_5':
+        elif template_name == 'internvl2_5':
             preprocess_function = preprocess_internvl2_5
         else:
             preprocess_function = preprocess
@@ -457,7 +469,7 @@ class LazySupervisedDataset(Dataset):
             assert num_patches == 1, f'The number of patches should be 1, but got {num_patches}.'
 
         # Select the appropriate preprocessing function based on the template name
-        preprocess_function = self.get_preprocess_function()
+        preprocess_function = self.get_preprocess_function(self.template_name)
 
         # Preprocess the conversations and generate the return dictionary
         ret = preprocess_function(self.template_name, [deepcopy(data_item['conversations'])],
@@ -478,8 +490,13 @@ class LazySupervisedDataset(Dataset):
             attention_mask=ret['attention_mask'][0],
             position_ids=position_ids[0],
             pixel_values=pixel_values,
-            image_flags=torch.tensor([1] * num_patches, dtype=torch.long)
+            image_flags=torch.tensor([1] * num_patches, dtype=torch.long),
+            questions=data_item['conversations'][0]['value'],
+            answers=data_item['conversations'][1]['value'],
+            num_patches_list=num_patches,
+            images=data_item['image']
         )
+        
         return ret
 
     def multi_modal_multi_image_get_item(self, data_item):
@@ -507,7 +524,7 @@ class LazySupervisedDataset(Dataset):
         num_patches = pixel_values.size(0)
 
         # Select the appropriate preprocessing function based on the template name
-        preprocess_function = self.get_preprocess_function()
+        preprocess_function = self.get_preprocess_function(self.template_name)
 
         # Preprocess the conversations and generate the return dictionary
         num_image_tokens = [self.num_image_token * num_tile for num_tile in num_tiles]
@@ -565,7 +582,7 @@ class LazySupervisedDataset(Dataset):
         num_patches = pixel_values.size(0)
 
         # Select the appropriate preprocessing function based on the template name
-        preprocess_function = self.get_preprocess_function()
+        preprocess_function = self.get_preprocess_function(self.template_name)
 
         # Preprocess the conversations and generate the return dictionary
         num_image_tokens = [self.num_image_token] * num_patches
@@ -608,7 +625,7 @@ class LazySupervisedDataset(Dataset):
         assert num_patches == 1, f'The number of patches should be 1, but got {num_patches}.'
 
         # Select the appropriate preprocessing function based on the template name
-        preprocess_function = self.get_preprocess_function()
+        preprocess_function = self.get_preprocess_function(self.template_name)
 
         # Preprocess the conversations and generate the return dictionary
         ret = preprocess_function(self.template_name, [deepcopy(data_item['conversations'])],
@@ -822,7 +839,9 @@ def main():
     # If use DeepSpeed zero3, init_dist must before HfArgumentParser
     #launcher = os.environ.get('LAUNCHER', 'slurm')
     #init_dist(launcher=launcher, backend='nccl')
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+   
+    #parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, InternvlRlByRuleConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith('.json'):
         # If we pass only one argument to the script, and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -1066,7 +1085,8 @@ def main():
         )
     else:
         collator = concat_pad_data_collator
-
+    
+    '''
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -1074,6 +1094,21 @@ def main():
         eval_dataset=None,
         tokenizer=tokenizer,
         data_collator=collator,
+    )
+    '''
+    trainer = InternvlRlByRuleTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset if training_args.do_train else None,
+        tokenizer=tokenizer,
+        data_collator=collator,
+        processing_class=tokenizer,
+        #reward_funcs=[format_reward_func, render_reward_func, restoration_reward_func],
+        #reward_funcs=[format_reward_func, render_reward_func],
+        reward_funcs=[format_reward_func],
+        #reward_funcs=[render_reward_func],
+        preprocess_conversation_func=LazySupervisedDataset.get_preprocess_function(data_args.conv_style),
+        #online_rl_by_rule=model_args.online_rl_by_rule,
     )
 
     logger.info(f'trainer.accelerator.distributed_type: {trainer.accelerator.distributed_type}')
